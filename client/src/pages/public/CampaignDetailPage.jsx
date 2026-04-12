@@ -1,0 +1,320 @@
+import { useParams, useNavigate } from 'react-router-dom';
+import L from 'leaflet';
+import { MapContainer, Marker, TileLayer } from 'react-leaflet';
+import Layout from '../../components/layout/Layout';
+import Badge from '../../components/ui/Badge';
+import Button from '../../components/ui/Button';
+import { SkeletonDetailPage } from '../../components/ui/Skeleton';
+import { useCampaign } from '../../hooks';
+import { useAuth } from '../../context/AuthContext';
+import { formatDateRange, formatDate, getAssetUrl, getGoogleMapsUrl, missionStatusConfig } from '../../utils/helpers';
+import toast from 'react-hot-toast';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+});
+
+const BackIcon = () => (
+  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+  </svg>
+);
+
+const InfoRow = ({ icon, label, value }) => (
+  value ? (
+    <div className="flex items-start gap-3">
+      <span className="text-slate-400 mt-0.5 flex-shrink-0">{icon}</span>
+      <div>
+        <p className="text-xs text-slate-400 font-medium uppercase tracking-wider mb-0.5">{label}</p>
+        <p className="text-sm text-slate-700 font-medium">{value}</p>
+      </div>
+    </div>
+  ) : null
+);
+
+const MissionCard = ({ mission, onParticipate }) => {
+  const config = missionStatusConfig[mission.status] || missionStatusConfig.open;
+  const spotsLeft = mission.required_volunteers - (mission.assigned_count || 0);
+
+  return (
+    <div className="card p-5 hover:shadow-card-hover transition-all duration-200">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <h4 className="font-semibold text-slate-900 text-base leading-snug">{mission.title}</h4>
+        <span className={`badge ${config.className} flex-shrink-0`}>
+          <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
+          {config.label}
+        </span>
+      </div>
+
+      {mission.description && (
+        <p className="text-sm text-slate-500 leading-relaxed mb-4">{mission.description}</p>
+      )}
+
+      <div className="grid grid-cols-2 gap-3 mb-4">
+        {mission.mission_date && (
+          <div className="bg-slate-50 rounded-lg px-3 py-2">
+            <p className="text-xs text-slate-400 font-medium mb-0.5">Date</p>
+            <p className="text-sm font-semibold text-slate-700">{formatDate(mission.mission_date)}</p>
+          </div>
+        )}
+        {mission.location && (
+          <div className="bg-slate-50 rounded-lg px-3 py-2">
+            <p className="text-xs text-slate-400 font-medium mb-0.5">Location</p>
+            <p className="text-sm font-semibold text-slate-700 truncate">{mission.location}</p>
+          </div>
+        )}
+        <div className="bg-slate-50 rounded-lg px-3 py-2">
+          <p className="text-xs text-slate-400 font-medium mb-0.5">Volunteers needed</p>
+          <p className="text-sm font-semibold text-slate-700">{mission.required_volunteers}</p>
+        </div>
+        <div className={`rounded-lg px-3 py-2 ${spotsLeft > 0 ? 'bg-emerald-50' : 'bg-red-50'}`}>
+          <p className={`text-xs font-medium mb-0.5 ${spotsLeft > 0 ? 'text-emerald-600' : 'text-red-500'}`}>Spots available</p>
+          <p className={`text-sm font-semibold ${spotsLeft > 0 ? 'text-emerald-700' : 'text-red-600'}`}>
+            {Math.max(0, spotsLeft)} left
+          </p>
+        </div>
+      </div>
+
+      {/* Volunteer bar */}
+      {mission.required_volunteers > 0 && (
+        <div className="mb-4">
+          <div className="flex justify-between text-xs text-slate-400 mb-1">
+            <span>{mission.assigned_count || 0} assigned</span>
+            <span>{mission.required_volunteers} needed</span>
+          </div>
+          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-emerald-500 rounded-full transition-all duration-500"
+              style={{ width: `${Math.min(100, ((mission.assigned_count || 0) / mission.required_volunteers) * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {mission.status === 'open' && spotsLeft > 0 && (
+        <Button variant="primary" size="sm" className="w-full" onClick={() => onParticipate(mission)}>
+          Apply to participate
+        </Button>
+      )}
+      {(mission.status !== 'open' || spotsLeft <= 0) && (
+        <p className="text-center text-xs text-slate-400 font-medium py-1">
+          {spotsLeft <= 0 ? 'All spots filled' : 'Applications closed'}
+        </p>
+      )}
+    </div>
+  );
+};
+
+const CampaignDetailPage = () => {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  const { campaign, missions, loading, error } = useCampaign(id);
+  const mapsUrl = campaign ? getGoogleMapsUrl(campaign.location, campaign.latitude, campaign.longitude) : null;
+  const hasCoordinates = campaign && Number.isFinite(Number(campaign.latitude)) && Number.isFinite(Number(campaign.longitude));
+  const mapPosition = hasCoordinates ? [Number(campaign.latitude), Number(campaign.longitude)] : null;
+
+  const handleParticipate = (mission) => {
+    if (!isAuthenticated) {
+      toast.error('Please sign in to apply for a mission.');
+      navigate('/login', { state: { from: { pathname: `/campaigns/${id}` } } });
+      return;
+    }
+    toast.success(`Application submitted for "${mission.title}"! (Demo)`);
+  };
+
+  if (error) {
+    return (
+      <Layout>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mx-auto mb-5">
+            <svg className="w-8 h-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          <h2 className="font-display text-2xl font-bold text-slate-900 mb-2">Campaign not found</h2>
+          <p className="text-slate-500 mb-6">{error}</p>
+          <Button variant="secondary" onClick={() => navigate('/')} icon={<BackIcon />}>Back to campaigns</Button>
+        </div>
+      </Layout>
+    );
+  }
+
+  return (
+    <Layout>
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        {/* Back button */}
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors mb-8 group"
+        >
+          <BackIcon />
+          <span className="group-hover:-translate-x-0.5 transition-transform">Back to campaigns</span>
+        </button>
+
+        {loading ? (
+          <SkeletonDetailPage />
+        ) : campaign ? (
+          <div className="animate-fade-in">
+            {/* Campaign header */}
+            <div className="bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden mb-8">
+              {campaign.image_url && (
+                <div className="relative h-72 sm:h-80 bg-slate-100">
+                  <img
+                    src={getAssetUrl(campaign.image_url)}
+                    alt={campaign.title}
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/45 via-slate-950/10 to-transparent" />
+                </div>
+              )}
+
+              <div className="p-8">
+              <div className="flex flex-wrap items-center gap-3 mb-4">
+                <Badge status={campaign.status} />
+                {campaign.organizer_name && (
+                  <span className="text-sm text-slate-500">
+                    by <strong className="text-slate-700">{campaign.organizer_name}</strong>
+                  </span>
+                )}
+                {mapsUrl && (
+                  <a
+                    href={mapsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                  >
+                    Open in Google Maps
+                  </a>
+                )}
+              </div>
+
+              <h1 className="font-display text-3xl sm:text-4xl font-bold text-slate-900 mb-4 leading-tight">
+                {campaign.title}
+              </h1>
+
+              {campaign.description && (
+                <p className="text-slate-600 text-base leading-relaxed mb-6 max-w-3xl">
+                  {campaign.description}
+                </p>
+              )}
+
+              {/* Info grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 pt-6 border-t border-slate-100">
+                <InfoRow
+                  icon={
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  }
+                  label="Location"
+                  value={campaign.location}
+                />
+                <InfoRow
+                  icon={
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                  }
+                  label="Campaign period"
+                  value={formatDateRange(campaign.start_date, campaign.end_date)}
+                />
+                <InfoRow
+                  icon={
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                  }
+                  label="Organizer"
+                  value={campaign.organizer_name}
+                />
+              </div>
+              </div>
+            </div>
+
+            {hasCoordinates && (
+              <div className="bg-white rounded-2xl border border-slate-100 shadow-card overflow-hidden mb-8">
+                <div className="p-8 pb-5">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <h2 className="font-display text-2xl font-bold text-slate-900">Campaign location</h2>
+                      <p className="text-sm text-slate-500 mt-1">
+                        See exactly where this campaign is taking place.
+                      </p>
+                    </div>
+                    {mapsUrl && (
+                      <a
+                        href={mapsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                      >
+                        Open in Google Maps
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <div className="h-80 w-full border-t border-slate-100">
+                  <MapContainer center={mapPosition} zoom={13} scrollWheelZoom className="h-full w-full z-0">
+                    <TileLayer
+                      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                      url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                    />
+                    <Marker position={mapPosition} />
+                  </MapContainer>
+                </div>
+              </div>
+            )}
+
+            {/* Missions section */}
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="font-display text-2xl font-bold text-slate-900">Missions</h2>
+                  <p className="text-sm text-slate-500 mt-1">
+                    {missions.length > 0
+                      ? `${missions.length} mission${missions.length !== 1 ? 's' : ''} available for this campaign`
+                      : 'No missions added yet'}
+                  </p>
+                </div>
+                {!isAuthenticated && missions.some((m) => m.status === 'open') && (
+                  <div className="hidden sm:flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold px-3 py-2 rounded-xl">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Sign in to participate
+                  </div>
+                )}
+              </div>
+
+              {missions.length === 0 ? (
+                <div className="card p-12 text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center mx-auto mb-4">
+                    <svg className="w-6 h-6 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                  </div>
+                  <p className="text-slate-500 text-sm">No missions have been added to this campaign yet.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {missions.map((mission) => (
+                    <MissionCard key={mission.id} mission={mission} onParticipate={handleParticipate} />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </Layout>
+  );
+};
+
+export default CampaignDetailPage;
