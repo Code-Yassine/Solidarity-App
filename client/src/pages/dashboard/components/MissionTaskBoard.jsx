@@ -43,6 +43,7 @@ const VolunteerCard = ({
   assignment,
   tasks,
   isBusy,
+  isDragging,
   onMove,
   onDragStart,
   onDragEnd,
@@ -53,29 +54,53 @@ const VolunteerCard = ({
     onDragStart={(event) => {
       event.dataTransfer.effectAllowed = 'move';
       event.dataTransfer.setData('text/plain', String(assignment.id));
+
+      const dragPreview = document.createElement('div');
+      dragPreview.textContent = assignment.volunteer_name;
+      dragPreview.style.position = 'fixed';
+      dragPreview.style.top = '-1000px';
+      dragPreview.style.left = '-1000px';
+      dragPreview.style.padding = '12px 16px';
+      dragPreview.style.borderRadius = '18px';
+      dragPreview.style.background = 'linear-gradient(135deg, #0f172a, #047857)';
+      dragPreview.style.color = '#fff';
+      dragPreview.style.fontSize = '13px';
+      dragPreview.style.fontWeight = '700';
+      dragPreview.style.boxShadow = '0 24px 60px rgba(15, 23, 42, 0.28)';
+      dragPreview.style.pointerEvents = 'none';
+      document.body.appendChild(dragPreview);
+      event.dataTransfer.setDragImage(dragPreview, 18, 18);
+      window.setTimeout(() => dragPreview.remove(), 0);
+
       onDragStart(assignment.id);
     }}
     onDragEnd={onDragEnd}
-    className={`rounded-2xl border border-slate-200 bg-white shadow-sm transition ${
-      compact ? 'p-3' : 'p-4'
+    className={`group relative w-full min-w-0 rounded-3xl border bg-white/95 shadow-sm backdrop-blur-sm transition-all duration-200 ${
+      compact ? 'min-h-[7rem] p-3.5' : 'min-h-[8rem] p-4'
     } ${
-      isBusy ? 'opacity-70' : 'cursor-grab active:cursor-grabbing hover:border-emerald-200 hover:shadow-md'
+      isDragging
+        ? 'z-20 scale-[1.015] rotate-[0.35deg] border-emerald-300 opacity-80 shadow-2xl shadow-emerald-900/15 ring-4 ring-emerald-200/70'
+        : 'border-slate-200'
+    } ${
+      isBusy ? 'opacity-70' : 'cursor-grab active:cursor-grabbing hover:-translate-y-0.5 hover:border-emerald-300 hover:shadow-xl hover:shadow-slate-900/10'
     }`}
   >
     <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="truncate font-semibold text-slate-900">{assignment.volunteer_name}</p>
         <p className={`mt-1 truncate text-slate-500 ${compact ? 'text-xs' : 'text-sm'}`}>{assignment.volunteer_email}</p>
         {assignment.volunteer_phone && (
           <p className="mt-1 truncate text-xs text-slate-400">{assignment.volunteer_phone}</p>
         )}
       </div>
-      <div className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-        Drag
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-slate-50 text-slate-400 transition-colors group-hover:border-emerald-200 group-hover:bg-emerald-50 group-hover:text-emerald-600">
+        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M7 4a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm0 6a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm-1.5 7.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM16 4a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0zm-1.5 7.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM16 16a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+        </svg>
       </div>
     </div>
 
-    <div className={compact ? 'mt-3' : 'mt-4'}>
+    <div className={compact ? 'mt-3 max-w-xs' : 'mt-4 max-w-sm'}>
       <label htmlFor={`assignment-${assignment.id}`} className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
         Move to
       </label>
@@ -84,7 +109,7 @@ const VolunteerCard = ({
         value={assignment.task_id || ''}
         onChange={(event) => onMove(assignment.id, event.target.value ? Number(event.target.value) : null)}
         disabled={isBusy}
-        className={`input-field mt-1.5 ${compact ? 'py-2 text-xs' : 'text-sm'}`}
+        className={`input-field mt-1.5 bg-white/90 ${compact ? 'py-2 text-xs' : 'text-sm'}`}
       >
         <option value="">Unassigned pool</option>
         {tasks.map((task) => (
@@ -279,6 +304,12 @@ const MissionTaskBoard = ({ campaigns = [] }) => {
         />
       ) : (
         <div className="space-y-5">
+          {draggedAssignmentId && (
+            <div className="sticky top-20 z-30 rounded-3xl border border-emerald-200 bg-emerald-50/95 px-5 py-3 text-sm font-semibold text-emerald-800 shadow-xl shadow-emerald-900/10 backdrop-blur-sm">
+              Dragging volunteer. Drop into a task lane, or drop back into the unassigned pool.
+            </div>
+          )}
+
           <div className="grid gap-4 lg:grid-cols-4">
             <SummaryCard
               label="Accepted"
@@ -321,9 +352,9 @@ const MissionTaskBoard = ({ campaigns = [] }) => {
           ) : (
             <div className="grid gap-4 xl:grid-cols-[0.9fr_1.5fr]">
               <Card
-                className={`border ${
+                className={`relative overflow-hidden border transition-all duration-200 ${
                   dragOverLane === 'unassigned'
-                    ? 'border-emerald-400 bg-emerald-50/80 shadow-lg shadow-emerald-100'
+                    ? 'border-emerald-400 bg-emerald-50/90 shadow-2xl shadow-emerald-900/10 ring-4 ring-emerald-200/70'
                     : 'border-slate-200 bg-white'
                 }`}
                 onDragOver={(event) => {
@@ -340,6 +371,9 @@ const MissionTaskBoard = ({ campaigns = [] }) => {
                   handleDrop(null);
                 }}
               >
+                {dragOverLane === 'unassigned' && (
+                  <div className="pointer-events-none absolute inset-3 rounded-3xl border-2 border-dashed border-emerald-400/80" />
+                )}
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="font-display text-xl text-slate-900">Unassigned volunteers</h3>
@@ -360,6 +394,7 @@ const MissionTaskBoard = ({ campaigns = [] }) => {
                       tasks={boardTasks}
                       isBusy={savingAssignmentId === assignment.id}
                       onMove={handleMoveAssignment}
+                      isDragging={draggedAssignmentId === assignment.id}
                       onDragStart={setDraggedAssignmentId}
                       onDragEnd={() => {
                         setDraggedAssignmentId(null);
@@ -367,7 +402,7 @@ const MissionTaskBoard = ({ campaigns = [] }) => {
                       }}
                     />
                   )) : (
-                    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-center text-sm text-slate-400">
+                    <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center text-sm text-slate-400">
                       Everyone is already placed on a task.
                     </div>
                   )}
@@ -406,12 +441,15 @@ const MissionTaskBoard = ({ campaigns = [] }) => {
                         event.preventDefault();
                         handleDrop(task.id);
                       }}
-                      className={`px-5 py-4 transition ${
+                      className={`relative px-5 py-4 transition-all duration-200 ${
                         dragOverLane === String(task.id)
-                          ? 'bg-emerald-50/80'
+                          ? 'bg-emerald-50/90 shadow-inner ring-2 ring-inset ring-emerald-300'
                           : task.laneTone.panel
                       }`}
                     >
+                      {dragOverLane === String(task.id) && (
+                        <div className="pointer-events-none absolute inset-3 rounded-3xl border-2 border-dashed border-emerald-400/80" />
+                      )}
                       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_9rem_9rem_minmax(0,1.7fr)] lg:items-start">
                         <div>
                           <p className="font-semibold text-slate-900">{task.title}</p>
@@ -443,7 +481,7 @@ const MissionTaskBoard = ({ campaigns = [] }) => {
                         <div>
                           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400 lg:hidden">Assigned volunteers</p>
                           {task.volunteers.length ? (
-                            <div className="grid gap-2 xl:grid-cols-2">
+                            <div className="grid gap-2">
                               {task.volunteers.map((assignment) => (
                                 <VolunteerCard
                                   key={assignment.id}
@@ -451,6 +489,7 @@ const MissionTaskBoard = ({ campaigns = [] }) => {
                                   tasks={boardTasks}
                                   isBusy={savingAssignmentId === assignment.id}
                                   onMove={handleMoveAssignment}
+                                  isDragging={draggedAssignmentId === assignment.id}
                                   onDragStart={setDraggedAssignmentId}
                                   onDragEnd={() => {
                                     setDraggedAssignmentId(null);
@@ -461,8 +500,12 @@ const MissionTaskBoard = ({ campaigns = [] }) => {
                               ))}
                             </div>
                           ) : (
-                            <div className={`rounded-2xl border border-dashed px-4 py-5 text-center text-sm ${task.laneTone.empty}`}>
-                              Drop volunteers here.
+                            <div className={`rounded-3xl border border-dashed px-4 py-6 text-center text-sm transition-all duration-200 ${
+                              dragOverLane === String(task.id)
+                                ? 'border-emerald-400 bg-white text-emerald-700 shadow-sm'
+                                : task.laneTone.empty
+                            }`}>
+                              {dragOverLane === String(task.id) ? 'Release to assign here' : 'Drop volunteers here'}
                             </div>
                           )}
                         </div>
