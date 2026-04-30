@@ -45,6 +45,26 @@ export const taskStatusConfig = {
   cancelled:   { label: 'Cancelled',   className: 'badge bg-rose-100 text-rose-700' },
 };
 
+export const donationStatusConfig = {
+  pending:   { label: 'Pending', className: 'bg-amber-100 text-amber-700' },
+  confirmed: { label: 'Confirmed', className: 'bg-emerald-100 text-emerald-700' },
+  rejected:  { label: 'Rejected', className: 'bg-rose-100 text-rose-700' },
+};
+
+export const donationTypeConfig = {
+  financial: { label: 'Financial', className: 'bg-sky-100 text-sky-700' },
+  material:  { label: 'Material', className: 'bg-violet-100 text-violet-700' },
+};
+
+export const formatAmount = (value) => {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return '0.00';
+  return numericValue.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
 export const getGoogleMapsUrl = (location, latitude, longitude) => {
   if (latitude && longitude) {
     return `https://www.google.com/maps?q=${latitude},${longitude}`;

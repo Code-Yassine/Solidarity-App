@@ -3,9 +3,11 @@ import Card from '../../../components/ui/Card';
 import Badge from '../../../components/ui/Badge';
 import { useAuth } from '../../../context/AuthContext';
 import { adminAPI, campaignAPI } from '../../../services/api';
+import { formatAmount } from '../../../utils/helpers';
 import {
   CampaignIcon,
   DashboardIcon,
+  DonationIcon,
   EmptyPanel,
   MetricCard,
   SectionTitle,
@@ -57,12 +59,12 @@ const OverviewView = () => {
             {isAdmin ? 'Admin dashboard' : 'Organizer overview'}
           </div>
           <h1 className="mt-5 font-display text-4xl text-slate-900 sm:text-5xl">
-            {isAdmin ? 'See requests, campaigns, and team momentum at a glance.' : 'Track the campaigns you are shaping right now.'}
+            {isAdmin ? 'See requests, campaigns, donations, and team momentum at a glance.' : 'Track the campaigns you are shaping right now.'}
           </h1>
           <p className="mt-4 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg">
             {isAdmin
-              ? 'Use the control pages to review volunteer requests, keep campaign statuses clean, and support organizers without getting lost in one giant screen.'
-              : 'Move between planning, mission building, and campaign control through a quieter workspace built around your initiatives.'}
+              ? 'Use the control pages to review volunteer requests, donation activity, and campaign statuses without getting lost in one giant screen.'
+              : 'Move between planning, mission building, campaign control, and donations through a quieter workspace built around your initiatives.'}
           </p>
         </div>
       </section>
@@ -72,19 +74,19 @@ const OverviewView = () => {
       ) : (
         <>
           <section>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className={`grid gap-4 md:grid-cols-2 ${isAdmin ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}>
               {isAdmin ? (
                 <>
                   <MetricCard
                     label="Active organizers"
-                    value={overview?.stats?.users?.organizers ?? '—'}
+                    value={overview?.stats?.users?.organizers ?? '-'}
                     hint="People currently running community initiatives."
                     icon={<TeamIcon />}
                     tint="bg-blue-500"
                   />
                   <MetricCard
                     label="Active campaigns"
-                    value={overview?.stats?.campaigns?.active_campaigns ?? '—'}
+                    value={overview?.stats?.campaigns?.active_campaigns ?? '-'}
                     hint="Campaigns visible to volunteers right now."
                     icon={<CampaignIcon />}
                     tint="bg-emerald-500"
@@ -98,10 +100,17 @@ const OverviewView = () => {
                   />
                   <MetricCard
                     label="Active accounts"
-                    value={overview?.stats?.users?.active_users ?? '—'}
+                    value={overview?.stats?.users?.active_users ?? '-'}
                     hint="Admins, organizers, and volunteers with access."
                     icon={<UserIcon />}
                     tint="bg-slate-500"
+                  />
+                  <MetricCard
+                    label="Pending donations"
+                    value={overview?.stats?.donations?.pending_donations ?? 0}
+                    hint="Donation offers that still need a response."
+                    icon={<DonationIcon />}
+                    tint="bg-orange-500"
                   />
                 </>
               ) : (
@@ -140,7 +149,7 @@ const OverviewView = () => {
           </section>
 
           {isAdmin ? (
-            <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+            <section className="grid gap-6 xl:grid-cols-3">
               <Card className="relative overflow-hidden border-slate-900 bg-slate-900 text-white">
                 <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top_right,_#34d399,_transparent_35%),radial-gradient(circle_at_bottom_left,_#38bdf8,_transparent_28%)]" />
                 <div className="relative">
@@ -183,6 +192,32 @@ const OverviewView = () => {
                       </div>
                     </div>
                   )) : <EmptyPanel title="No users yet" description="New signups and organizer accounts will appear here." />}
+                </div>
+              </Card>
+
+              <Card>
+                <SectionTitle
+                  title="Recent donations"
+                  subtitle="The latest donor activity entering the platform."
+                />
+                <div className="space-y-3">
+                  {overview?.recentDonations?.length ? overview.recentDonations.map((donation) => (
+                    <div key={donation.id} className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="font-semibold text-slate-900">{donation.donor_name}</p>
+                          <p className="mt-1 text-sm text-slate-500">
+                            {donation.type === 'financial'
+                              ? `${formatAmount(donation.amount)} pledged for ${donation.campaign_title}`
+                              : `Material offer for ${donation.campaign_title}`}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold capitalize text-white">
+                          {donation.status}
+                        </span>
+                      </div>
+                    </div>
+                  )) : <EmptyPanel title="No donations yet" description="Donation activity will show here as soon as people start contributing." />}
                 </div>
               </Card>
             </section>

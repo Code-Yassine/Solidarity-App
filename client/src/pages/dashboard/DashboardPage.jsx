@@ -4,12 +4,14 @@ import Layout from '../../components/layout/Layout';
 import { useAuth } from '../../context/AuthContext';
 import CampaignControlView from './views/CampaignControlView';
 import CampaignsView from './views/CampaignsView';
+import DonationsView from './views/DonationsView';
 import OverviewView from './views/OverviewView';
 import OrganizersView from './views/OrganizersView';
 import {
   CampaignIcon,
   ControlIcon,
   DashboardIcon,
+  DonationIcon,
   TeamIcon,
 } from './components/DashboardPrimitives';
 
@@ -33,6 +35,13 @@ const navigationItems = [
     description: 'Move campaign statuses and review mission requests.',
     to: '/dashboard/control',
     icon: ControlIcon,
+    roles: ['admin', 'organizer'],
+  },
+  {
+    label: 'Donations',
+    description: 'Review money pledges and material support.',
+    to: '/dashboard/donations',
+    icon: DonationIcon,
     roles: ['admin', 'organizer'],
   },
   {
@@ -156,6 +165,7 @@ const DashboardPage = () => {
             <Route path="overview" element={<OverviewView />} />
             <Route path="campaigns" element={<CampaignsView />} />
             <Route path="control" element={<CampaignControlView />} />
+            <Route path="donations" element={<DonationsView />} />
             <Route
               path="organizers"
               element={user?.role === 'admin' ? <OrganizersView /> : <Navigate to="/dashboard/overview" replace />}

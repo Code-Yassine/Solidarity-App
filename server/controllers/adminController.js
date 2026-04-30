@@ -1,5 +1,6 @@
 const UserModel = require('../models/User');
 const CampaignModel = require('../models/Campaign');
+const DonationModel = require('../models/Donation');
 const VolunteerApplicationModel = require('../models/VolunteerApplication');
 const { notifyActiveAdmins } = require('../services/notificationService');
 
@@ -16,12 +17,14 @@ const notifyAdminsSafely = async (payload) => {
 
 const getOverview = async (req, res, next) => {
   try {
-    const [userStats, campaignStats, applicationStats, users, campaigns] = await Promise.all([
+    const [userStats, campaignStats, donationStats, applicationStats, users, campaigns, recentDonations] = await Promise.all([
       UserModel.getStats(),
       CampaignModel.getStats(),
+      DonationModel.getStats({ user: req.user }),
       VolunteerApplicationModel.getStats(),
       UserModel.findAll(),
       CampaignModel.findManageable({ user: req.user }),
+      DonationModel.findManageable({ user: req.user, limit: 5 }),
     ]);
 
     res.status(200).json({
@@ -30,10 +33,12 @@ const getOverview = async (req, res, next) => {
         stats: {
           users: userStats,
           campaigns: campaignStats,
+          donations: donationStats,
           applications: applicationStats,
         },
         recentUsers: users.slice(0, 5),
         recentCampaigns: campaigns.slice(0, 5),
+        recentDonations,
       },
     });
   } catch (error) {

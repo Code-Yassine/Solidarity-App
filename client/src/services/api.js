@@ -63,6 +63,14 @@ export const campaignAPI = {
   updateMissionTask: (campaignId, missionId, taskId, data) => api.put(`/campaigns/${campaignId}/missions/${missionId}/tasks/${taskId}`, data),
   removeMissionTask: (campaignId, missionId, taskId) => api.delete(`/campaigns/${campaignId}/missions/${missionId}/tasks/${taskId}`),
   applyToMission: (campaignId, missionId, data = {}) => api.post(`/campaigns/${campaignId}/missions/${missionId}/apply`, data),
+  createDonation: (campaignId, data) => api.post(`/campaigns/${campaignId}/donations`, data),
+};
+
+export const donationAPI = {
+  getManageable: (params) => api.get('/campaigns/donations/manage', { params }),
+  update: (id, data) => api.put(`/campaigns/donations/${id}`, data),
+  updateStatus: (id, data) => api.patch(`/campaigns/donations/${id}/status`, data),
+  remove: (id) => api.delete(`/campaigns/donations/${id}`),
 };
 
 export const adminAPI = {
